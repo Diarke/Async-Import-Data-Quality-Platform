@@ -4,3 +4,12 @@ sqlalchemy
 asyncpg
 pydantic-settings
 python-multipart
+aio-pika
+redis
+python-dateutil
+
+# Testing
+pytest
+pytest-asyncio
+httpx
+

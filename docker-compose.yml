@@ -1,0 +1,118 @@
+services:
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    ports:
+      - "5672:5672"      # AMQP port
+      - "15672:15672"    # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache/Store
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # File Import Service
+  file-import-service:
+    build:
+      context: ./file-import-service
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DEBUG: "true"
+      TITLE: "File Import Service"
+      VERSION: "1.0.0"
+      DOCS_URL: "/docs"
+      REDOC_URL: "/redoc"
+      
+      RMQ_HOST: rabbitmq
+      RMQ_PORT: 5672
+      RMQ_USER: guest
+      RMQ_PASS: guest
+      
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      
+      CHUNK_SIZE: 524288
+      STORAGE_PATH: /app/storage/results
+    volumes:
+      - ./file-import-service:/app
+      - ./storage/results:/app/storage/results
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # File Conversion Consumer
+  file-conversion-consumer:
+    build:
+      context: ./file-conversion-consumer
+      dockerfile: Dockerfile
+    environment:
+      RMQ_HOST: rabbitmq
+      RMQ_PORT: 5672
+      RMQ_USER: guest
+      RMQ_PASS: guest
+      
+      MAX_RETRIES: 3
+      PREFETCH_COUNT: 1
+      DEFAULT_COUNTRY_CODE: "KZ"
+    volumes:
+      - ./file-conversion-consumer:/app
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    command: python main.py
+
+  # Result Collector Service
+  result-collector:
+    build:
+      context: ./result-collector
+      dockerfile: Dockerfile
+    environment:
+      RMQ_HOST: rabbitmq
+      RMQ_PORT: 5672
+      RMQ_USER: guest
+      RMQ_PASS: guest
+      
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      
+      STORAGE_PATH: /app/storage/results
+    volumes:
+      - ./result-collector:/app
+      - ./storage/results:/app/storage/results
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: python main.py
+
+volumes:
+  rabbitmq_data:
+  redis_data:
+
+networks:
+  default:
+    name: file_processing_network
