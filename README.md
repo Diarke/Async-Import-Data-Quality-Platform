@@ -13,39 +13,39 @@
 
 ```
 ┌─────────────────┐     HTTP        ┌──────────────────┐
-│     Client      │─────────────────▶│ File-Import-Svc  │
+│     Client      │─────────────────▶│ File-Import-Svc │
 └─────────────────┘                 └────────┬─────────┘
                                              │
-                                    Publish chunks
+                                      Publish chunks
                                              │
                                     ▼────────────────┐
-                                  ┌─────────────────┴────┐
+                                  ┌──────────────────┴──┐
                                   │     RabbitMQ        │
                                   │  file_chunks queue  │
                                   └─────────┬───────────┘
                                             │
-                                   Consume & process
+                                    Consume & process
                                             │
                                   ▼─────────────────────┐
                                   │File-Conversion-Svc  │
                                   │  (Normalize data)   │
                                   └────────┬────────────┘
                                            │
-                                Publish normalized
+                                   ublish normalized
                                            │
                                   ▼────────────────┐
                                   │    RabbitMQ    │
                                   │ processed queue│
-                                  └────────┬────────┘
+                                  └────────┬───────┘
                                            │
-                                Consume & buffer
+                                   Consume & buffer
                                            │
                                   ▼────────────────┐
                                   │Result-Collector│
                                   │  (Assemble)    │
-                                  └────────┬────────┘
+                                  └────────┬───────┘
                                            │
-                                  Store result
+                                     Store result
                                            │
                                         Redis
                                       + Storage FS
